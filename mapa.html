@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa da Escola - Rastreamento em Tempo Real</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
+   
+    <!-- CLIENTE SDK SUPABASE -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script&gt;
+
     <style>
         * {
             box-sizing: border-box;
@@ -115,21 +119,25 @@
         <div id="alunos-layer"></div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js&quot;;
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js&quot;;
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js&quot;;
+    <script>
+        if (sessionStorage.getItem('logado') !== 'true') {
+            window.location.replace("index.html");
+        }
 
-        const firebaseConfig = {
-            apiKey: " minha API",
-            authDomain: "meu dominio",
-            databaseURL: "minha URL;,
-            projectId: "school-tracker-2026"
-        };
+        /* =========================================================
+           INICIALIZAÇÃO DO SUPABASE
+           ========================================================= */
+        const SUPABASE_URL = 'https://jrdzgddszylausmwgrxw.supabase.co&#39;;
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyZHpnZGRzenlsYXVzbXdncnh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NzAwNDgsImV4cCI6MjEwNzE0NjA0OH0.6a9pbuSuabu9yP5zdtlemeIQYTXIB4ArauayEi5N-BY';
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const auth = getAuth(app);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: false }
+        });
+
+        // Limpa canais órfãos ao carregar a página do mapa
+        if (supabaseClient) {
+            supabaseClient.removeAllChannels();
+        }
 
         const locais = {
             "BWC MASCULINO": { top: 58.0, left: 61.0 },
@@ -141,217 +149,83 @@
             "SALA":          { top: 55.0, left: 45.0 }
         };
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                console.log("🔒 Autenticação<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa da Escola - Rastreamento em Tempo Real</title>
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .header-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            max-width: 1000px;
-            margin-bottom: 20px;
-        }
-        h1 {
-            font-size: 1.8rem;
-            color: #38bdf8;
-            text-align: center;
-            margin: 0;
-        }
-        .btn-voltar {
-            background-color: #334155;
-            color: #f8fafc;
-            border: 1px solid #475569;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: background 0.2s;
-        }
-        .btn-voltar:hover {
-            background-color: #475569;
-        }
-        #mapa-container {
-            position: relative;
-            width: 100%;
-            max-width: 1000px;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            background-color: #1e293b;
-        }
-        #mapa-img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        #alunos-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        .aluno-marker {
-            position: absolute;
-            width: 14px;
-            height: 14px;
-            background-color: #ef4444;
-            border: 2px solid #ffffff;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 0 10px #ef4444;
-            transition: all 0.5s ease;
-            pointer-events: auto;
-            z-index: 10;
-        }
-        .aluno-label {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(15, 23, 42, 0.92);
-            color: #ffffff;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            white-space: nowrap;
-            border: 1px solid #ef4444;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
-        }
-    </style>
-</head>
-<body>
+        async function carregarEMonitorarMapa() {
+            await renderizarMapa();
 
-    <div class="header-container">
-        <a href="telao.html" class="btn-voltar" onclick="event.preventDefault(); window.location.replace('telao.html');">
-            ← Voltar
-        </a>
-        <h1>📍 Mapa de Movimentação em Tempo Real</h1>
-        <div style="width: 75px;"></div>
-    </div>
+            // Canal Realtime blindado com auto-reconexão
+            const canalMapa = supabaseClient.channel('realtime-mapa');
 
-    <div id="mapa-container">
-        <img id="mapa-img" src="planta_escola.png" alt="Planta da Escola">
-        <div id="alunos-layer"></div>
-    </div>
+            canalMapa
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'movimentacoes' }, async () => {
+                    await renderizarMapa();
+                })
+                .subscribe((status, err) => {
+                    console.log("📡 Status do Canal Mapa:", status);
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                        console.warn("⚠️ Oscilação detectada no mapa. Reconectando canal em 2s...");
+                        setTimeout(() => {
+                            canalMapa.subscribe();
+                        }, 2000);
+                    }
+                });
+        }
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js&quot;;
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js&quot;;
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js&quot;;
+        async function renderizarMapa() {
+            const alunosLayer = document.getElementById('alunos-layer');
+            if (!alunosLayer) return;
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCHxMR6NRrqiNSypsmxywtfu5x9H6ZlvOA",
-            authDomain: "school-tracker-2026.firebaseapp.com",
-            databaseURL: "https://school-tracker-2026-default-rtdb.firebaseio.com&quot;,
-            projectId: "school-tracker-2026"
-        };
+            alunosLayer.innerHTML = '';
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const auth = getAuth(app);
+            const { data: movimentacoes, error } = await supabaseClient
+                .from('movimentacoes')
+                .select('*')
+                .eq('status', 'em_andamento');
 
-        const locais = {
-            "BWC MASCULINO": { top: 58.0, left: 61.0 },
-            "BWC FEMININO":  { top: 70.0, left: 61.0 },
-            "BEBEDOURO":     { top: 61.0, left: 63.0 },
-            "PATIO":         { top: 52.0, left: 70.0 },
-            "PEDAGOGIA":     { top: 66.0, left: 76.0 },
-            "AULA VAGA":     { top: 51.0, left: 52.0 },
-            "SALA":          { top: 55.0, left: 45.0 }
-        };
+            if (error || !movimentacoes) {
+                console.warn("⚠️ Nenhuma movimentação ativa encontrada no banco.");
+                return;
+            }
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                console.log("🔒 Autenticação confirmada no Mapa: UID =", user.uid);
+            const hoje = new Date().toISOString().split('T')[0];
+            const contagemPorLocal = {};
+            const turmasProcessadasAulaVaga = new Set();
 
-                onValue(ref(db, 'movimentacoes'), (snapshot) => {
-                    const alunosLayer = document.getElementById('alunos-layer');
-                    if (!alunosLayer) {
-                        console.warn("⚠️ Elemento 'alunos-layer' não encontrado no DOM.");
-                        return;
+            movimentacoes.forEach(mov => {
+                const dataMov = mov.data_hora_saida ? mov.data_hora_saida.split('T')[0] : hoje;
+
+                if (dataMov === hoje) {
+                    let destino = (mov.local_destino || mov.tipo || "SALA")
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .toUpperCase()
+                        .trim();
+
+                    if (destino === "PED") destino = "PEDAGOGIA";
+
+                    if (destino === "AULA VAGA") {
+                        if (turmasProcessadasAulaVaga.has(mov.turma)) return;
+                        turmasProcessadasAulaVaga.add(mov.turma);
                     }
 
-                    alunosLayer.innerHTML = '';
+                    const coordsBase = locais[destino] || locais["SALA"];
+                    if (!contagemPorLocal[destino]) contagemPorLocal[destino] = 0;
 
-                    if (!snapshot.exists()) return;
+                    const offset = contagemPorLocal[destino];
+                    contagemPorLocal[destino]++;
 
-                    const dados = snapshot.val();
-                    const hoje = new Date().toISOString().split('T')[0];
-
-                    const contagemPorLocal = {};
-                    const turmasProcessadasAulaVaga = new Set();
-
-                    Object.entries(dados).forEach(([id, mov]) => {
-                        if (mov && mov.data_hora_saida && !mov.data_hora_retorno) {
-                            const dataMov = mov.data_hora_saida.split('T')[0];
-
-                            if (dataMov === hoje) {
-                                let destino = (mov.local_destino || "SALA")
-                                                .normalize("NFD")
-                                                .replace(/[\u0300-\u036f]/g, "")
-                                                .toUpperCase()
-                                                .trim();
-
-                                if (destino === "PED") destino = "PEDAGOGIA";
-
-                                if (destino === "AULA VAGA") {
-                                    if (turmasProcessadasAulaVaga.has(mov.turma)) return;
-                                    turmasProcessadasAulaVaga.add(mov.turma);
-                                }
-
-                                const coordsBase = locais[destino] || locais["SALA"];
-                                if (!contagemPorLocal[destino]) contagemPorLocal[destino] = 0;
-
-                                const offset = contagemPorLocal[destino];
-                                contagemPorLocal[destino]++;
-
-                                if (destino === "AULA VAGA") {
-                                    criarMarcadorTurma(mov.turma, coordsBase, alunosLayer, offset);
-                                } else {
-                                    criarMarcador(mov.nome, mov.turma, coordsBase, alunosLayer, offset);
-                                }
-                            }
-                        }
-                    });
-                });
-
-            } else {
-                console.warn("⚠️ Usuário não autenticado no Mapa. Redirecionando...");
-                window.location.replace("index.html");
-            }
-        });
+                    if (destino === "AULA VAGA") {
+                        criarMarcadorTurma(mov.turma, coordsBase, alunosLayer, offset);
+                    } else {
+                        criarMarcador(mov.nome, mov.turma, coordsBase, alunosLayer, offset);
+                    }
+                }
+            });
+        }
 
         function criarMarcador(nome, turma, coords, container, offset) {
             const marker = document.createElement('div');
             marker.className = 'aluno-marker';
            
-            // O ponto do marcador descende levemente no mapa para separar as bolinhas
             marker.style.top = (coords.top + (offset * 1.5)) + "%";
             marker.style.left = (coords.left + (offset * 0.4)) + "%";
             marker.style.zIndex = 100 - offset;
@@ -359,7 +233,6 @@
             const primeiroNome = (nome || "Aluno").split(' ')[0];
             const labelTexto = turma ? `${primeiroNome} - ${turma}` : primeiroNome;
 
-            // Offset das caixas ajustado para 30px, permitindo leitura limpa e empilhamento lego
             const bottomOffset = 20 + (offset * 30);
 
             marker.innerHTML = `<div class="aluno-label" style="bottom: ${bottomOffset}px;">${labelTexto}</div>`;
@@ -381,101 +254,9 @@
             marker.innerHTML = `<div class="aluno-label" style="border-color: #f59e0b; bottom: ${bottomOffset}px;">${legendaDesejada}</div>`;
             container.appendChild(marker);
         }
-    </script>
-</body>
-</html> confirmada no Mapa: UID =", user.uid);
 
-                onValue(ref(db, 'movimentacoes'), (snapshot) => {
-                    const alunosLayer = document.getElementById('alunos-layer');
-                    if (!alunosLayer) {
-                        console.warn("⚠️ Elemento 'alunos-layer' não encontrado no DOM.");
-                        return;
-                    }
-
-                    alunosLayer.innerHTML = '';
-
-                    if (!snapshot.exists()) return;
-
-                    const dados = snapshot.val();
-                    const hoje = new Date().toISOString().split('T')[0];
-
-                    const contagemPorLocal = {};
-                    const turmasProcessadasAulaVaga = new Set();
-
-                    Object.entries(dados).forEach(([id, mov]) => {
-                        if (mov && mov.data_hora_saida && !mov.data_hora_retorno) {
-                            const dataMov = mov.data_hora_saida.split('T')[0];
-
-                            if (dataMov === hoje) {
-                                let destino = (mov.local_destino || "SALA")
-                                                .normalize("NFD")
-                                                .replace(/[\u0300-\u036f]/g, "")
-                                                .toUpperCase()
-                                                .trim();
-
-                                if (destino === "PED") destino = "PEDAGOGIA";
-
-                                if (destino === "AULA VAGA") {
-                                    if (turmasProcessadasAulaVaga.has(mov.turma)) return;
-                                    turmasProcessadasAulaVaga.add(mov.turma);
-                                }
-
-                                const coordsBase = locais[destino] || locais["SALA"];
-                                if (!contagemPorLocal[destino]) contagemPorLocal[destino] = 0;
-
-                                const offset = contagemPorLocal[destino];
-                                contagemPorLocal[destino]++;
-
-                                if (destino === "AULA VAGA") {
-                                    criarMarcadorTurma(mov.turma, coordsBase, alunosLayer, offset);
-                                } else {
-                                    criarMarcador(mov.nome, mov.turma, coordsBase, alunosLayer, offset);
-                                }
-                            }
-                        }
-                    });
-                });
-
-            } else {
-                console.warn("⚠️ Usuário não autenticado no Mapa. Redirecionando...");
-                window.location.replace("index.html");
-            }
-        });
-
-        function criarMarcador(nome, turma, coords, container, offset) {
-            const marker = document.createElement('div');
-            marker.className = 'aluno-marker';
-           
-            // O ponto do marcador descende levemente no mapa para separar as bolinhas
-            marker.style.top = (coords.top + (offset * 1.5)) + "%";
-            marker.style.left = (coords.left + (offset * 0.4)) + "%";
-            marker.style.zIndex = 100 - offset;
-
-            const primeiroNome = (nome || "Aluno").split(' ')[0];
-            const labelTexto = turma ? `${primeiroNome} - ${turma}` : primeiroNome;
-
-            // Offset das caixas ajustado para 30px, permitindo leitura limpa e empilhamento lego
-            const bottomOffset = 20 + (offset * 30);
-
-            marker.innerHTML = `<div class="aluno-label" style="bottom: ${bottomOffset}px;">${labelTexto}</div>`;
-            container.appendChild(marker);
-        }
-
-        function criarMarcadorTurma(turma, coords, container, offset) {
-            const marker = document.createElement('div');
-            marker.className = 'aluno-marker';
-            marker.style.background = "#f59e0b";
-            marker.style.boxShadow = "0 0 20px #f59e0b";
-            marker.style.top = (coords.top + (offset * 1.5)) + "%";
-            marker.style.left = (coords.left + (offset * 0.4)) + "%";
-            marker.style.zIndex = 100 - offset;
-
-            const legendaDesejada = `Turma ${turma} (aula vaga)`;
-            const bottomOffset = 20 + (offset * 30);
-
-            marker.innerHTML = `<div class="aluno-label" style="border-color: #f59e0b; bottom: ${bottomOffset}px;">${legendaDesejada}</div>`;
-            container.appendChild(marker);
-        }
+        // Inicializa o mapa
+        carregarEMonitorarMapa();
     </script>
 </body>
 </html>
